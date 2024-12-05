@@ -1,11 +1,15 @@
 import sys
 import os
 from dataclasses import dataclass
-from typing import List, Set, Dict
+from typing import List, Set, Dict, Tuple
 from clang.cindex import Index, CursorKind, TranslationUnit, Config
 from collections import defaultdict
 
+from rich.console import Console
+
 Config.set_library_file("/opt/homebrew/Cellar/llvm/18.1.8/lib/libclang.dylib")
+console = Console()
+
 
 # this class will be used during code transformation
 @dataclass
@@ -13,8 +17,18 @@ class MacroOccurence:
     line: str
     column: str
     file_path: str
-    arg_types: List[tuple]
+    arg_types: List[Tuple[str, str]]
     return_type: str
+
+    def __str__(self):
+        arg_types_str = ", ".join(f"({name}: {type_})" for name, type_ in self.arg_types)
+        return (
+            f"MacroOccurrence:\n"
+            f"  File Path: {self.file_path}\n"
+            f"  Line: {self.line}, Column: {self.column}\n"
+            f"  Argument Types: {arg_types_str}\n"
+            f"  Return Type: {self.return_type}\n"
+        )
     
 
 @dataclass
@@ -96,10 +110,10 @@ class MacroAnalyzer:
         
         # diagnostics might be important for unexpected ast behavior
         if len(tu.diagnostics) > 0:
-            print("\nParse diagnostics:", file=sys.stderr)
+            console.print("[red bold] Parse diagnostics:")
             for diag in tu.diagnostics:
                 if diag.location.file and self.is_project_file(str(diag.location.file)):
-                    print(f"  {diag.format()}", file=sys.stderr)
+                    console.print(f"[red] {diag.format()}")
         
         self._analyze_tu(tu)
 
@@ -588,8 +602,8 @@ class MacroAnalyzer:
                             
                             args_found.append((k, c.type.spelling))
                             
-
-        return args_found
+        seen = set()
+        return [a for a in args_found if not (a in seen or seen.add(a))]
     
 
     def _location_contains(self, range_start, range_end, target):
@@ -764,8 +778,9 @@ class MacroAnalyzer:
         """
         For each macro, print out all of its type occurences
         """
+
         for macro_name, macro_info in self.macros.items():
-            print("macro: ", macro_name)
+            console.print(f"[green bold underline] macro: {macro_name}")
             for o in macro_info.type_occurences:
                 print(o)
 
@@ -800,7 +815,7 @@ def main():
 
 
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"[red bold] Error: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
