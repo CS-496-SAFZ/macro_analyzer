@@ -304,7 +304,6 @@ class MacroAnalyzer:
 
         # const macros
         for new_macro, l, col in changes:
-            print(new_macro)
             idx = l - 1
             lines[idx] = new_macro + "\n"
 
@@ -496,7 +495,8 @@ class MacroAnalyzer:
                         macro.type_occurences.append(
                             MacroOccurence(
                                 line=c.location.line, column=c.location.column,
-                                file_path=self.project_root, arg_types=analyzed_arg_types,
+                                file_path= os.path.relpath(str(c.location.file), self.project_root),
+                                arg_types=analyzed_arg_types,
                                 return_type=analyzed_return_type
                                 ))
                         
@@ -506,7 +506,8 @@ class MacroAnalyzer:
                         macro.type_occurences.append(
                             MacroOccurence(
                                 line=c.location.line, column=c.location.column,
-                                file_path=self.project_root, arg_types=[],
+                                file_path= os.path.relpath(str(c.location.file), self.project_root),
+                                arg_types=[],
                                 return_type=analyzed_type
                                 ))
 
@@ -674,21 +675,19 @@ class MacroAnalyzer:
             ]:
                 # variable declarations and return stmts directly give type
                 type_info = parent.type.spelling if parent.type else None
-                print(f"DETERMINED TYPE for macro {macro.name}: {type_info}")
+                #print(f"DETERMINED TYPE for macro {macro.name}: {type_info}")
                 break
             elif parent.kind == CursorKind.CALL_EXPR:
                 # this is when a macro is being passed into a function
                 # we can then just get its type from that function's arg type
                 type_info = self._get_param_type(parent, cursor)
-                print(f"DETERMINED TYPE for macro {macro.name}: {type_info}")
+                #print(f"DETERMINED TYPE for macro {macro.name}: {type_info}")
                 break
             elif parent.kind == CursorKind.BINARY_OPERATOR:
                 # TODO: need to discuss/learn more about type promotion to verify this is a correct approach
                 operands = list(parent.get_children())
                 if len(operands) == 2:
                     left_op, right_op = operands
-
-                    self._print_tokens(right_op.get_tokens())
                     macro_loc = cursor.location
     
                     
@@ -700,14 +699,14 @@ class MacroAnalyzer:
                         right_op.extent.start.column == macro_loc.column):
                         type_info = left_op.type.spelling
                     
-                    if type_info:
-                        print(f"DETERMINED TYPE (binary op) for macro {macro.name}: {type_info}")
+                    # if type_info:
+                    #     print(f"DETERMINED TYPE (binary op) for macro {macro.name}: {type_info}")
                     break
   
             elif parent.kind == CursorKind.FIELD_DECL:
                 # struct/union field initialization is just the field's declared type
                 type_info = parent.type.spelling
-                print(f"DETERMINED TYPE (field init) for macro {macro.name}: {type_info}")
+                #print(f"DETERMINED TYPE (field init) for macro {macro.name}: {type_info}")
                 break
             elif parent.kind in [CursorKind.UNEXPOSED_EXPR, CursorKind.PAREN_EXPR, CursorKind.COMPOUND_STMT]:
                 continue
@@ -815,7 +814,7 @@ def main():
 
 
     except Exception as e:
-        print(f"[red bold] Error: {e}", file=sys.stderr)
+        console.print(f"[red bold] Error: {e}")
 
 if __name__ == "__main__":
     main()
