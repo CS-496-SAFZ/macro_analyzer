@@ -217,12 +217,13 @@ class MacroAnalyzer:
         
         changes = [] # (str, row, col)
         line_to_changes = defaultdict(list)
+        main_file_abs = os.path.abspath(main_file)
 
         
         for c in self.tu_cursor.walk_preorder():
             if c.kind == CursorKind.MACRO_DEFINITION:
                 location = c.location
-                if location.file and self.is_project_file(str(location.file)):
+                if location.file and os.path.abspath(str(location.file)) == main_file_abs:
                     tokens = list(c.get_tokens())
                     if not tokens:
                         continue
@@ -279,7 +280,7 @@ class MacroAnalyzer:
 
             if (c.kind == CursorKind.MACRO_INSTANTIATION and 
                 c.location.file and 
-                self.is_project_file(str(c.location.file))):           
+                os.path.abspath(str(location.file)) == main_file_abs):           
                 
                 macro_name = c.spelling
                 
@@ -302,10 +303,14 @@ class MacroAnalyzer:
         with open(main_file, "r") as f:
             lines = f.readlines()
 
-        # const macros
-        for new_macro, l, col in changes:
-            idx = l - 1
-            lines[idx] = new_macro + "\n"
+        try:
+            # const macros
+            for new_macro, l, col in changes:
+                idx = l - 1
+                lines[idx] = new_macro + "\n"
+        except:
+            print(len(lines))
+            print(idx)
 
         # parenthesize args to function-like macros
         for l in line_to_changes:
@@ -482,14 +487,15 @@ class MacroAnalyzer:
                 macro_name = c.spelling
                 if macro_name in self.macros:
                     macro = self.macros[macro_name]
+                    if (self.is_declaration_macro(macro_name, macro.body)):
+                        continue
                     if macro.is_function_like:
                         expressions = self._extract_call_expressions(c)
 
                         for arg_name, expr in zip(macro.args, expressions):
                             if expr not in macro.expressions[arg_name]:
                                 macro.expressions[arg_name].append(expr)
-                        
-                        
+
                         analyzed_arg_types = self._analyze_arg_types(c, macro)
                         analyzed_return_type = self._analyze_types(c, macro)
                         macro.type_occurences.append(
@@ -664,7 +670,7 @@ class MacroAnalyzer:
 
             parents = new_parents
    
-        # self._print_parent_hierachy(parents)
+        #self._print_parent_hierachy(parents)
 
         type_info = None
 
@@ -726,7 +732,7 @@ class MacroAnalyzer:
                 value = next(parent.get_tokens()).spelling if list(parent.get_tokens()) else ""
                 print(f"{indent}{prefix}{parent.kind}: {value} at {location.line}:{location.column}")
             else:
-                print(f"{indent}{prefix}{parent.kind}: {parent.spelling} at {location.line}:{location.column}")
+                print(f"{indent}{prefix}{parent.kind}, {parent.type.spelling}: {parent.spelling} at {location.line}:{location.column}")
 
 
         
@@ -778,8 +784,12 @@ class MacroAnalyzer:
         For each macro, print out all of its type occurences
         """
 
+
         for macro_name, macro_info in self.macros.items():
+            occurence_count = len(macro_info.type_occurences)
             console.print(f"[green bold underline] macro: {macro_name}")
+            console.print(f"[green underline] # of occurences: {occurence_count}")
+
             for o in macro_info.type_occurences:
                 print(o)
 
@@ -799,22 +809,22 @@ def main():
     
     analyzer = MacroAnalyzer(project_root)
 
-    try:
-        analyzer.analyze_file(main_file)
-        analyzer.parenthesize_args_and_bodies(main_file)
-        base, ext = os.path.splitext(main_file)
+    # try:
+    analyzer.analyze_file(main_file)
+    analyzer.parenthesize_args_and_bodies(main_file)
+    base, ext = os.path.splitext(main_file)
 
 
-        output_file = f"{base}_processed{ext}"
-        project_root = project_root = os.path.dirname(output_file)
-        analyzer = MacroAnalyzer(project_root)
-        analyzer.analyze_file(output_file)
-        #analyzer.print_analysis()
-        analyzer.print_occurences()
+    output_file = f"{base}_processed{ext}"
+    project_root = project_root = os.path.dirname(output_file)
+    analyzer = MacroAnalyzer(project_root)
+    analyzer.analyze_file(output_file)
+    #analyzer.print_analysis()
+    analyzer.print_occurences()
 
 
-    except Exception as e:
-        console.print(f"[red bold] Error: {e}")
+    # except Exception as e:
+    #     console.print(f"[red bold] Error: {e}")
 
 if __name__ == "__main__":
     main()

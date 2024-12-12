@@ -1,5 +1,4 @@
-#include <stdint.h>
-
+#include <stdlib.h>
 #define PTR_DEREF(p,q) (*(p) + q)
 
 typedef struct {
@@ -16,6 +15,7 @@ int main() {
 
     int val = 123;
     int* ptr = &val;
-    int deref = PTR_DEREF((ptr), ((myPair->first) * 1.5));
-
+    int deref1;
+    deref1 = PTR_DEREF((ptr), (20));
+    double deref2 = PTR_DEREF((ptr), ((myPair->first) * 1.5));
 }
